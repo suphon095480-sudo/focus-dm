@@ -70,6 +70,10 @@ html[data-focusdm="clip"], html[data-focusdm="clip"] body {
   overflow: hidden !important;
   overscroll-behavior: none !important;
 }
+html[data-focusdm="clip"] * {
+  touch-action: none !important;
+  scroll-snap-type: none !important;
+}
 ''';
 
 const _jsTemplate = r'''
@@ -82,27 +86,40 @@ const _jsTemplate = r'''
   style.textContent = __CSS__;
   (document.head || document.documentElement).appendChild(style);
 
+  function bigVideo() {
+    var vs = document.getElementsByTagName('video');
+    for (var i = 0; i < vs.length; i++) {
+      var r = vs[i].getBoundingClientRect();
+      if (r.height > window.innerHeight * 0.6 && r.bottom > 0 && r.top < window.innerHeight) return true;
+    }
+    return false;
+  }
+
   function mode() {
     var p = location.pathname;
     if (/^\/(reel|reels|p|tv)\/[^\/]+/.test(p) && !/^\/reels\/(audio|videos)(\/|$)/.test(p)) return 'clip';
     if (p === '/') return 'home';
     if (p.indexOf('/stories/') === 0) return 'story';
+    if (bigVideo()) return 'clip'; // คลิปเต็มจอแบบหน้าต่างซ้อน (URL ไม่เปลี่ยน)
     if (p === '/direct/' || p === '/direct/inbox/' || p === '/direct/inbox') return 'inbox';
     if (p.indexOf('/direct/') === 0) return 'thread';
     return 'other';
   }
 
-  // ล็อกการเลื่อนเฉพาะตอนดูคลิปเดี่ยว (ถอด listener ออกเมื่อไม่ใช้ ไม่งั้นหน้าอื่นจะเลื่อนกระตุก)
+  // ตอนดูคลิป: กันไม่ให้ IG รับท่าปัด/ลาก (ใช้คู่กับ CSS touch-action: none ที่ปิดการเลื่อนของเบราว์เซอร์)
+  // listener เป็นแบบ passive และติดตั้งเฉพาะตอนดูคลิป เพื่อไม่ให้หน้าอื่นเลื่อนกระตุก
   var locked = false;
-  function lock(e) {
-    if (e.cancelable) e.preventDefault();
+  var swipeEvents = ['touchstart', 'touchmove', 'pointermove'];
+  function swallow(e) {
+    e.stopPropagation();
   }
   function setLock(on) {
     if (on === locked) return;
     locked = on;
-    var fn = on ? 'addEventListener' : 'removeEventListener';
-    document[fn]('touchmove', lock, { passive: false, capture: true });
-    document[fn]('wheel', lock, { passive: false, capture: true });
+    for (var i = 0; i < swipeEvents.length; i++) {
+      if (on) document.addEventListener(swipeEvents[i], swallow, { capture: true, passive: true });
+      else document.removeEventListener(swipeEvents[i], swallow, { capture: true });
+    }
   }
 
   function clearFeed() {
@@ -252,6 +269,12 @@ _Kind _classify(Uri uri) {
   }
 }
 
+/// รหัสคลิปจาก /reel/<code>/ , /reels/<code>/ , /p/<code>/ , /tv/<code>/
+String? _clipCodeOf(Uri uri) {
+  final seg = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  return seg.length >= 2 ? seg[1] : null;
+}
+
 // ───────────────────────── UI ─────────────────────────
 
 class FocusDmApp extends StatelessWidget {
@@ -285,6 +308,7 @@ class _FocusHomeState extends State<_FocusHome> {
   int _tab = 0; // 0 = แชท, 1 = สตอรี่
   bool _inClip = false;
   bool _loading = true;
+  String? _clipCode; // รหัสคลิปที่กำลังดู ใช้กันไม่ให้ปัดไปคลิปอื่น
 
   @override
   void initState() {
@@ -348,6 +372,17 @@ class _FocusHomeState extends State<_FocusHome> {
       _say('หน้านี้ถูกซ่อนไว้เพื่อให้โฟกัส');
       _web.loadRequest(Uri.parse(_tab == 1 ? _storiesUrl : _inboxUrl));
       return;
+    }
+    if (kind == _Kind.clip) {
+      final code = _clipCodeOf(uri);
+      if (_clipCode != null && code != _clipCode) {
+        _say('ดูได้ทีละคลิป');
+        _goBack();
+        return;
+      }
+      _clipCode = code;
+    } else {
+      _clipCode = null;
     }
     if (!mounted) return;
     setState(() {
