@@ -414,27 +414,40 @@ class _FocusHomeState extends State<_FocusHome> {
               top: BorderSide(color: Colors.white12, width: 0.5),
             ),
           ),
-          child: NavigationBar(
-            height: 60,
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            indicatorColor: Colors.white12,
-            labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-            selectedIndex: _tab,
-            onDestinationSelected: _selectTab,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.chat_bubble_outline),
-                selectedIcon: Icon(Icons.chat_bubble),
-                label: 'แชท',
+          // แถบล่างแบบมินิมอล: ไอคอนอย่างเดียว ไม่มีข้อความ ไอคอนที่เลือกอยู่เป็นสีขาวทึบ
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 52,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: IconButton(
+                      tooltip: 'แชท',
+                      iconSize: 26,
+                      color: Colors.white38,
+                      isSelected: _tab == 0,
+                      selectedIcon:
+                          const Icon(Icons.chat_bubble, color: Colors.white),
+                      icon: const Icon(Icons.chat_bubble_outline),
+                      onPressed: () => _selectTab(0),
+                    ),
+                  ),
+                  Expanded(
+                    child: IconButton(
+                      tooltip: 'สตอรี่',
+                      iconSize: 26,
+                      color: Colors.white38,
+                      isSelected: _tab == 1,
+                      selectedIcon:
+                          const Icon(Icons.auto_stories, color: Colors.white),
+                      icon: const Icon(Icons.auto_stories_outlined),
+                      onPressed: () => _selectTab(1),
+                    ),
+                  ),
+                ],
               ),
-              NavigationDestination(
-                icon: Icon(Icons.auto_stories_outlined),
-                selectedIcon: Icon(Icons.auto_stories),
-                label: 'สตอรี่',
-              ),
-            ],
+            ),
           ),
         ),
       ),
